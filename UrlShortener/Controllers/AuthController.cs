@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using UrlShortener.DTOs;
 using UrlShortener.Models;
 using UrlShortener.Services.Interfaces;
@@ -12,13 +13,13 @@ namespace UrlShortener.Controllers
     {
         private readonly IJwtService _jwtService;
         private readonly IUserService _userService;
-        private readonly IConfiguration _configuration;
+        private readonly JwtSettings _jwtSettings;
 
-        public AuthController(IJwtService jwtService, IUserService userService, IConfiguration configuration)
+        public AuthController(IJwtService jwtService, IUserService userService, IOptions<JwtSettings> jwtSettings)
         {
             _jwtService = jwtService;
             _userService = userService;
-            _configuration = configuration;
+            _jwtSettings = jwtSettings.Value;
         }
 
         [HttpPost("login")]
@@ -46,7 +47,6 @@ namespace UrlShortener.Controllers
             }
 
             // Generate token
-            var expirationMinutes = _configuration.GetValue<int>("JwtSettings:ExpirationInMinutes");
             var token = _jwtService.GenerateToken(
                 userId: user.UserId,
                 username: user.Username,
@@ -57,7 +57,7 @@ namespace UrlShortener.Controllers
             {
                 Token = token,
                 Username = user.Username,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+                ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes)
             });
         }
 
