@@ -17,7 +17,7 @@ namespace UrlShortener.Services
             _jwtSettings = jwtSettings.Value;
         }
 
-        public string GenerateToken(string userId, string username, IEnumerable<string> roles = null)
+        public string GenerateToken(string userId, string username, IEnumerable<string>? roles = null)
         {
             var claims = new List<Claim>
         {
