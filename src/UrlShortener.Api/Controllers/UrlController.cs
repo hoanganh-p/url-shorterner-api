@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using UrlShortener.Api.Services.Interfaces;
 using UrlShortener.Api.DTOs;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
@@ -11,17 +12,24 @@ namespace UrlShortener.Api.Controllers;
 public class UrlController : ControllerBase
 {
     private readonly IUrlService _urlService;
+    private readonly IMapper _mapper;
     private readonly ILogger<UrlController> _logger;
 
-    public UrlController(IUrlService urlService, ILogger<UrlController> logger)
+    public UrlController(IUrlService urlService, IMapper mapper, ILogger<UrlController> logger)
     {
         _urlService = urlService;
+        _mapper = mapper;
         _logger = logger;
     }
 
     private string? GetUserId()
     {
         return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    }
+
+    private string GetBaseUrl()
+    {
+        return $"{Request.Scheme}://{Request.Host}";
     }
 
     [HttpPost("create")]
@@ -35,14 +43,7 @@ public class UrlController : ControllerBase
         var userId = GetUserId();
         var created = await _urlService.CreateAsync(req.OriginalUrl, userId);
 
-        var shortUrl = $"{Request.Scheme}://{Request.Host}/{created.ShortCode}";
-
-        var response = new CreateResponse
-        {
-            ShortCode = created.ShortCode,
-            ShortUrl = shortUrl
-        };
-
+        var response = _mapper.Map<CreateResponse>(created, opts => opts.Items["BaseUrl"] = GetBaseUrl());
         return CreatedAtAction(nameof(RedirectToOriginal), new { code = created.ShortCode }, response);
     }
 
@@ -56,7 +57,7 @@ public class UrlController : ControllerBase
             return NotFound();
 
         // Increment clicks asynchronously without blocking redirect
-        _ = _urlService.IncrementClicksAsync(code);
+        await _urlService.IncrementClicksAsync(code);
 
         return Redirect(data.OriginalUrl);
     }
@@ -74,16 +75,7 @@ public class UrlController : ControllerBase
         try
         {
             var urls = await _urlService.GetUserUrlsAsync(userId);
-            var response = urls.Select(u => new UrlResponse
-            {
-                ShortCode = u.ShortCode,
-                OriginalUrl = u.OriginalUrl,
-                ShortUrl = $"{Request.Scheme}://{Request.Host}/{u.ShortCode}",
-                CreatedAt = u.CreatedAt,
-                IsActive = u.IsActive,
-                TotalClicks = u.TotalClicks
-            });
-
+            var response = _mapper.Map<IEnumerable<UrlResponse>>(urls, opts => opts.Items["BaseUrl"] = GetBaseUrl());
             return Ok(response);
         }
         catch (Exception ex)
@@ -110,16 +102,7 @@ public class UrlController : ControllerBase
             if (url == null)
                 return NotFound("URL not found or you don't have access");
 
-            var response = new UrlResponse
-            {
-                ShortCode = url.ShortCode,
-                OriginalUrl = url.OriginalUrl,
-                ShortUrl = $"{Request.Scheme}://{Request.Host}/{url.ShortCode}",
-                CreatedAt = url.CreatedAt,
-                IsActive = url.IsActive,
-                TotalClicks = url.TotalClicks
-            };
-
+            var response = _mapper.Map<UrlResponse>(url, opts => opts.Items["BaseUrl"] = GetBaseUrl());
             return Ok(response);
         }
         catch (Exception ex)
@@ -150,16 +133,7 @@ public class UrlController : ControllerBase
             if (updated == null)
                 return NotFound("URL not found or you don't have access");
 
-            var response = new UrlResponse
-            {
-                ShortCode = updated.ShortCode,
-                OriginalUrl = updated.OriginalUrl,
-                ShortUrl = $"{Request.Scheme}://{Request.Host}/{updated.ShortCode}",
-                CreatedAt = updated.CreatedAt,
-                IsActive = updated.IsActive,
-                TotalClicks = updated.TotalClicks
-            };
-
+            var response = _mapper.Map<UrlResponse>(updated, opts => opts.Items["BaseUrl"] = GetBaseUrl());
             return Ok(response);
         }
         catch (Exception ex)

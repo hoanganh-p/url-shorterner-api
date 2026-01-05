@@ -38,6 +38,9 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUrlRepository, UrlRepository>();
 builder.Services.AddScoped<IUrlService, UrlService>();
 
+// AutoMapper
+builder.Services.AddAutoMapper(typeof(Program));
+
 // Authentication
 builder.Services.AddAuthentication(options =>
 {
@@ -100,6 +103,7 @@ app.MapGet("/{code}", async (string code, IUrlService urlService) =>
 {
     var data = await urlService.GetAsync(code);
     if (data == null) return Results.NotFound();
+    await urlService.IncrementClicksAsync(code);
     return Results.Redirect(data.OriginalUrl);
 });
 
